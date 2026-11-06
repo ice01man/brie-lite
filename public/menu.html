@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Menú semanal · Sistema BRIE</title>
+<link rel="stylesheet" href="css/brie.css" />
+<link rel="manifest" href="/manifest.webmanifest" />
+<meta name="theme-color" content="#7a68b5" />
+<link rel="icon" type="image/png" sizes="48x48" href="/icons/favicon-48.png" />
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-title" content="Brie" />
+<script src="/js/pwa.js" defer></script>
+</head>
+<body>
+<div id="navbar"></div>
+<main class="container" style="padding:2.5rem 1rem;">
+  <h1 style="font-size:1.875rem; font-weight:800; color:var(--brie-violet-deep);">Menú semanal</h1>
+  <p style="opacity:0.7; margin-top:0.25rem;">Elegí un día (o "Todos") y filtrá por categoría.</p>
+
+  <div id="dias" style="display:flex; flex-wrap:wrap; gap:0.5rem; margin-top:1.5rem;"></div>
+  <div id="filtros" style="margin-top:1rem;"></div>
+  <div id="menu" class="cards-grid"></div>
+</main>
+
+<script src="js/api.js"></script>
+<script src="js/constants.js"></script>
+<script src="js/foodcard.js"></script>
+<script src="js/navbar.js"></script>
+<script>
+  // Si viene de "Ver platos →" con ?categoria=Gourmet, arrancamos mostrando
+  // esa categoría en TODOS los días (no solo el de hoy).
+  const categoriaUrl = new URLSearchParams(location.search).get("categoria");
+  let diaActual = categoriaUrl ? "todos" : (DIAS.includes(diaDeHoy()) ? diaDeHoy() : "lunes");
+  let categoriaActual = categoriaUrl || "Todos";
+  let todosLosProductos = [];
+
+  async function init() {
+    todosLosProductos = await apiGet(`/products`); // ya viene filtrado a activos desde el backend
+    render();
+  }
+
+  function elegirDia(dia) {
+    diaActual = dia;
+    render();
+  }
+
+  function filtrarCategoria(cat) {
+    categoriaActual = cat;
+    render();
+  }
+
+  function render() {
+    document.getElementById("dias").innerHTML = ["todos", ...DIAS]
+      .map((d) => `<button class="chip ${d === diaActual ? "activo" : ""}" onclick="elegirDia('${d}')">${d === "todos" ? "Todos los días" : DIA_LABEL[d]}</button>`)
+      .join("");
+
+    const porDia = diaActual === "todos" ? todosLosProductos : todosLosProductos.filter((p) => p.day === diaActual);
+
+    document.getElementById("filtros").innerHTML = porDia.length ? renderFiltrosCategoria(porDia, categoriaActual, "filtrarCategoria") : "";
+
+    const visibles = categoriaActual === "Todos" ? porDia : porDia.filter((p) => p.category === categoriaActual);
+    const cont = document.getElementById("menu");
+    if (visibles.length === 0) {
+      cont.innerHTML = `<div class="card" style="grid-column:1/-1; text-align:center; opacity:0.7;">No hay platos cargados con ese filtro.</div>`;
+      return;
+    }
+    cont.innerHTML = visibles
+      .map((p) => renderFoodCard(p, `<span class="fc-price">${fmtPrecio(p.price)}</span>`, diaActual === "todos"))
+      .join("");
+  }
+
+  init();
+</script>
+</body>
+</html>
